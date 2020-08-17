@@ -1,13 +1,17 @@
 package com.vho.arrowparquettest;
 
 
-import org.apache.avro.Schema;
+import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.FieldType;
+import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.GenericRecordBuilder;
 import org.apache.parquet.avro.AvroSchemaConverter;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.MessageTypeParser;
 
+import java.util.Arrays;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.vho.arrowparquettest.Util.pickRandom;
@@ -28,7 +32,7 @@ public class Person {
     "}\n" +
     "}");
 
-  private static final Schema avroSchema = new AvroSchemaConverter().convert(schema);
+  private static final org.apache.avro.Schema avroSchema = new AvroSchemaConverter().convert(schema);
   private static GenericRecordBuilder builder = new GenericRecordBuilder(avroSchema);
   private final String firstName;
   private final String lastName;
@@ -69,8 +73,17 @@ public class Person {
     return address;
   }
 
-  public static Schema getAvroSchema() {
+  public static org.apache.avro.Schema  getAvroSchema() {
     return avroSchema;
+  }
+
+  public static Schema arrowSchema() {
+    return new Schema(Arrays.asList(
+      new Field("firstName", FieldType.nullable(new ArrowType.Utf8()), null),
+      new Field("lastName", FieldType.nullable(new ArrowType.Utf8()), null),
+      new Field("age", FieldType.nullable(new ArrowType.Int(32, false)), null),
+      new Field("address", FieldType.nullable(new ArrowType.Struct()), Address.arrowSchema().getFields())
+    ));
   }
 
   public GenericRecord toGenericRecord() {

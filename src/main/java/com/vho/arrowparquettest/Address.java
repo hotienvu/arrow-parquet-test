@@ -1,12 +1,16 @@
 package com.vho.arrowparquettest;
 
-import org.apache.avro.Schema;
+import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.FieldType;
+import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.GenericRecordBuilder;
 import org.apache.parquet.avro.AvroSchemaConverter;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.MessageTypeParser;
 
+import java.util.Arrays;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.vho.arrowparquettest.Util.pickRandom;
@@ -33,7 +37,7 @@ public class Address {
       "  optional int32 postalCode;\n" +
       "}");
 
-  private static final Schema avroSchema = new AvroSchemaConverter().convert(schema);
+  private static final org.apache.avro.Schema avroSchema = new AvroSchemaConverter().convert(schema);
   private static final GenericRecordBuilder builder = new GenericRecordBuilder(avroSchema);
 
 
@@ -57,6 +61,15 @@ public class Address {
     this.streetNumber = streetNumber;
     this.city = city;
     this.postalCode = postalCode;
+  }
+
+  public static org.apache.arrow.vector.types.pojo.Schema arrowSchema() {
+    return new Schema(Arrays.asList(
+      new Field("street", FieldType.nullable(new ArrowType.Utf8()), null),
+      new Field("streetNumber", FieldType.nullable(new ArrowType.Int(32, false)), null),
+      new Field("city", FieldType.nullable(new ArrowType.Utf8()), null),
+      new Field("postalCode", FieldType.nullable(new ArrowType.Int(32, false)), null)
+    ));
   }
 
 
