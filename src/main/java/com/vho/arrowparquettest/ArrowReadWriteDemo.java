@@ -2,7 +2,6 @@ package com.vho.arrowparquettest;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -22,8 +21,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-public class GenerateArrowApp {
-  private static Logger LOG = LoggerFactory.getLogger(GenerateArrowApp.class);
+public class ArrowReadWriteDemo {
+  private static Logger LOG = LoggerFactory.getLogger(ArrowReadWriteDemo.class);
 
 
   private void writeToArrowFile(Person[] people, File outFile, final int numRecordsPerBatch) throws IOException {
@@ -116,7 +115,7 @@ public class GenerateArrowApp {
   }
 
   public static void main(String[] args) throws IOException {
-    GenerateArrowApp app = new GenerateArrowApp();
+    ArrowReadWriteDemo app = new ArrowReadWriteDemo();
     app.testWriteToArrow();
     app.readFromArrowFile();
   }
