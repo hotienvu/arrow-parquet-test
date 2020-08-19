@@ -26,9 +26,10 @@ public class ArrowReadWriteDemo {
 
 
   private void writeToArrowFile(Person[] people, File outFile, final int numRecordsPerBatch) throws IOException {
-    VectorSchemaRoot schemaRoot = VectorSchemaRoot.create(Person.arrowSchema(), new RootAllocator());
-    FileOutputStream os = new FileOutputStream(outFile);
-    try (ArrowFileWriter writer = new ArrowFileWriter(schemaRoot, new DictionaryProvider.MapDictionaryProvider(), os.getChannel())) {
+
+    try (VectorSchemaRoot schemaRoot = VectorSchemaRoot.create(Person.arrowSchema(), new RootAllocator());
+         FileOutputStream os = new FileOutputStream(outFile);
+         ArrowFileWriter writer = new ArrowFileWriter(schemaRoot, new DictionaryProvider.MapDictionaryProvider(), os.getChannel())) {
       LOG.info("start writing");
       writer.start();
       int batches = 0;
@@ -87,31 +88,35 @@ public class ArrowReadWriteDemo {
   }
 
   private void readFromArrowFile() throws IOException {
-    FileInputStream os = new FileInputStream(new File("people.arrow"));
-    List<Person> people = new ArrayList<>();
-    try (BufferAllocator allocator = new RootAllocator();
+    try (FileInputStream os = new FileInputStream(new File("people.arrow"));
+         BufferAllocator allocator = new RootAllocator();
          ArrowFileReader reader = new ArrowFileReader(new SeekableReadChannel(os.getChannel()), allocator)) {
       reader.initialize();
-      VectorSchemaRoot schemaRoot = reader.getVectorSchemaRoot();
-      while (reader.loadNextBatch()) {
-        LOG.info("reading {} records from batch", schemaRoot.getRowCount());
-        VarCharVector firstNames = (VarCharVector) schemaRoot.getVector("firstName");
-        VarCharVector lastNames = (VarCharVector) schemaRoot.getVector("lastName");
-        UInt4Vector ages = (UInt4Vector) schemaRoot.getVector("age");
-        StructVector addresses = (StructVector) schemaRoot.getVector("address");
-        VarCharVector streets = (VarCharVector) addresses.getChild("street");
-        UInt4Vector streetNumbers = (UInt4Vector) addresses.getChild("streetNumber");
-        VarCharVector cities = (VarCharVector) addresses.getChild("city");
-        UInt4Vector postalCodes = (UInt4Vector) addresses.getChild("postalCode");
-
-        for (int i = 0; i < schemaRoot.getRowCount(); ++i) {
-          Address address = new Address(new String(streets.get(i)), streetNumbers.get(i), new String(cities.get(i)),  postalCodes.get(i));
-          Person person = new Person(new String(firstNames.get(i)), new String(lastNames.get(i)), ages.get(i), address);
-          people.add(person);
-        }
-      }
-      LOG.info("Done reading {} records ", people.size());
+      readPersonRecords(reader);
     }
+  }
+
+  public static void readPersonRecords(ArrowFileReader reader) throws IOException {
+    List<Person> people = new ArrayList<>();
+    VectorSchemaRoot schemaRoot = reader.getVectorSchemaRoot();
+    while (reader.loadNextBatch()) {
+      LOG.info("reading {} records from batch", schemaRoot.getRowCount());
+      VarCharVector firstNames = (VarCharVector) schemaRoot.getVector("firstName");
+      VarCharVector lastNames = (VarCharVector) schemaRoot.getVector("lastName");
+      UInt4Vector ages = (UInt4Vector) schemaRoot.getVector("age");
+      StructVector addresses = (StructVector) schemaRoot.getVector("address");
+      VarCharVector streets = (VarCharVector) addresses.getChild("street");
+      UInt4Vector streetNumbers = (UInt4Vector) addresses.getChild("streetNumber");
+      VarCharVector cities = (VarCharVector) addresses.getChild("city");
+      UInt4Vector postalCodes = (UInt4Vector) addresses.getChild("postalCode");
+
+      for (int i = 0; i < schemaRoot.getRowCount(); ++i) {
+        Address address = new Address(new String(streets.get(i)), streetNumbers.get(i), new String(cities.get(i)),  postalCodes.get(i));
+        Person person = new Person(new String(firstNames.get(i)), new String(lastNames.get(i)), ages.get(i), address);
+        people.add(person);
+      }
+    }
+    LOG.info("Done reading {} records ", people.size());
   }
 
   public static void main(String[] args) throws IOException {

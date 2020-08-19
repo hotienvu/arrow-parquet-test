@@ -1,0 +1,23 @@
+<configuration>
+
+    <property>
+        <name>dfs.data.dir</name>
+        <value>./target/hdfs</value>
+    </property>
+
+    <property>
+        <name>dfs.namenode.rpc-address</name>
+        <value>127.0.0.1:8020</value>
+    </property>
+
+    <property>
+        <name>dfs.namenode.http-address</name>
+        <value>0.0.0.0:50070</value>
+    </property>
+
+    <property>
+        <name>hdfs.minidfs.basedir</name>
+        <value>./target/hdfs</value>
+    </property>
+
+</configuration>

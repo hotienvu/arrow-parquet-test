@@ -24,12 +24,13 @@ public class HadoopSeekableByteChannel implements SeekableByteChannel {
     checkIfChannelIsClosed();
     int read = 0;
 
+    int oldPos = dst.position();
     if (dst.hasArray()) { // if FSDataInputStream if not ByteBufferReadable
       read = inputStream.read(dst.array(), dst.position() + dst.arrayOffset(), dst.remaining());
     } else {
       read = inputStream.read(dst);
     }
-    dst.position(dst.position() + read);
+    dst.position(oldPos + read);
     return read;
   }
 

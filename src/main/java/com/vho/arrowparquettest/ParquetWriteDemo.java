@@ -14,8 +14,7 @@ public class ParquetWriteDemo {
   private static final int NUM_PEOPLE = 1_000_000;
 
   public static void main(String[] args) throws IOException {
-    ParquetWriteDemo app = new ParquetWriteDemo();
-    Person[] people = app.generateRandom(NUM_PEOPLE);
+    ParquetWriteDemo app = new ParquetWriteDemo(); Person[] people = app.generateRandom(NUM_PEOPLE);
     app.writeToParquet(people);
   }
 
