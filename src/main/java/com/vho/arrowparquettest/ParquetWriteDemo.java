@@ -1,22 +1,26 @@
 package com.vho.arrowparquettest;
 
+import com.vho.arrowparquettest.hdfs.MiniHDFS;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hdfs.HdfsConfiguration;
+import org.apache.parquet.avro.AvroParquetReader;
 import org.apache.parquet.avro.AvroParquetWriter;
 import org.apache.parquet.hadoop.ParquetFileWriter;
+import org.apache.parquet.hadoop.ParquetReader;
 import org.apache.parquet.hadoop.ParquetWriter;
+import org.apache.parquet.hadoop.util.HadoopInputFile;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-
-import static org.apache.parquet.avro.AvroParquetWriter.builder;
+import java.util.ArrayList;
+import java.util.List;
 
 public class ParquetWriteDemo {
   private static final int NUM_PEOPLE = 1_000_000;
-
-  public static void main(String[] args) throws IOException {
-    ParquetWriteDemo app = new ParquetWriteDemo(); Person[] people = app.generateRandom(NUM_PEOPLE);
-    app.writeToParquet(people);
-  }
+  private MiniHDFS hdfs;
+  private static final Logger LOG = LoggerFactory.getLogger(ParquetWriteDemo.class);
 
   private Person[] generateRandom(int numPeople) {
     Person[] res = new Person[numPeople];
@@ -27,21 +31,6 @@ public class ParquetWriteDemo {
   }
 
   private void writeToParquet(Person[] people) throws IOException {
-//    MessageType schema = Person.parquetSchema();
-//    System.out.println(schema.toString());
-//    long rowGroupSize = 1000;
-//    int maxPaddingSize = 10;
-//    ParquetFileWriter writer = new ParquetFileWriter(file, schema,
-//      ParquetFileWriter.Mode.OVERWRITE, rowGroupSize, maxPaddingSize);
-//
-//    writer.start();
-//    writer.startBlock(1);
-//    ColumnDescriptor firstNameCol = schema.getColumnDescription(new String[]{"firstName"});
-//    writer.startColumn(firstNameCol, 1, CompressionCodecName.SNAPPY);
-//    writer.writeDataPage(1, );
-//    writer.endColumn();
-//    writer.end(Collections.emptyMap());
-
     long start = System.currentTimeMillis();
     try (ParquetWriter<GenericRecord> writer = AvroParquetWriter
       .<GenericRecord>builder(new Path("people.parquet"))
@@ -56,10 +45,44 @@ public class ParquetWriteDemo {
       int count = 0;
       for (GenericRecord rec: records) {
         if (++count % 100_000 == 0)
-          System.out.println("Done writing: " + count);
+          LOG.info("Done writing: {} records", count);
         writer.write(rec);
       }
     }
-    System.out.println("Elapsed = " + (System.currentTimeMillis() - start) + " ms.");
+    LOG.info("Elapsed = {} ms", System.currentTimeMillis() - start);
   }
+
+  private void readParquet() throws IOException {
+    ParquetReader<GenericRecord> reader = AvroParquetReader
+      .<GenericRecord>builder(HadoopInputFile.fromPath(new Path("/people2.parquet"), hdfs.getConfiguration()))
+      .build();
+    GenericRecord record = reader.read();
+    List<GenericRecord> res = new ArrayList<>();
+    while (record != null) {
+      res.add(record);
+      record = reader.read();
+    }
+    LOG.info("Done reading {} records", res.size());
+  }
+
+
+  private void shutdown() {
+    hdfs.shutdown();
+  }
+
+  private void init() throws IOException {
+    hdfs = new MiniHDFS("/data/hdfs");
+    hdfs.start();
+  }
+
+  public static void main(String[] args) throws IOException {
+    ParquetWriteDemo app = new ParquetWriteDemo();
+    app.init();
+//    Person[] people = app.generateRandom(NUM_PEOPLE);
+//    app.writeToParquet(people);
+    app.hdfs.getFileSystem().copyFromLocalFile(new Path("people.parquet"), new Path("/people2.parquet"));
+    app.readParquet();
+    app.shutdown();
+  }
+
 }

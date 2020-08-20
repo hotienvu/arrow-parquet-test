@@ -6,41 +6,27 @@ import org.apache.arrow.memory.AllocationOutcome;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.ipc.ArrowFileReader;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hdfs.HdfsConfiguration;
-import org.apache.hadoop.hdfs.MiniDFSCluster;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
 
 public class HdfsReadWriteDemo {
   private static final String HDFS_BASE_DIR = "/data/hdfs";
   private static final String ARROW_FILE_HDFS_PATH = "/people.arrow";
-  private MiniDFSCluster hdfsCluster;
+  private MiniHDFS hdfs;
 
   private static final Logger LOG = LoggerFactory.getLogger(HdfsReadWriteDemo.class);
 
-  public static void main(String[] args) throws IOException, InterruptedException {
-    HdfsReadWriteDemo app = new HdfsReadWriteDemo();
-    app.initHdfs();
-    app.writeToHdfs();
-    Thread.sleep(1000);
-    app.readFromHdfs();
-    app.shutdown();
-  }
-
-  private void shutdown() {
-    hdfsCluster.shutdown(false);
-  }
 
   private void writeToHdfs() throws IOException {
-    try (FileSystem fs = hdfsCluster.getFileSystem()) {
+    try (FileSystem fs = hdfs.getFileSystem()) {
       fs.copyFromLocalFile(new Path("people.arrow"), new Path(ARROW_FILE_HDFS_PATH));
 
       for (FileStatus status: fs.listStatus(new Path("/"))) {
@@ -84,23 +70,63 @@ public class HdfsReadWriteDemo {
         LOG.info("One child removed. parent = {}, child = {}", parentAllocator, childAllocator);
       }
     };
-    try (FileSystem fs = hdfsCluster.getFileSystem();
+    try (FileSystem fs = hdfs.getFileSystem();
          BufferAllocator allocator = new RootAllocator(allocationListener, Long.MAX_VALUE);
          FSDataInputStream fis =fs.open(new Path(ARROW_FILE_HDFS_PATH))
     ) {
       FileStatus status = fs.getFileStatus(new Path(ARROW_FILE_HDFS_PATH));
       SeekableByteChannel hadoopByteChannel = new HadoopSeekableByteChannel(status, fis);
       ArrowFileReader reader = new ArrowFileReader(hadoopByteChannel, allocator) ;
+      LOG.info("Arrow reader read = {}", reader.bytesRead());
       ArrowReadWriteDemo.readPersonRecords(reader);
+      LOG.info("Arrow reader read = {}", reader.bytesRead());
+      LOG.info("File size = {}", status.getLen());
+      LOG.info("hadoop byte channel position = {}", hadoopByteChannel.position());
     }
   }
 
-  private void initHdfs() throws IOException {
-    Configuration conf = new HdfsConfiguration();
-    conf.set(MiniDFSCluster.HDFS_MINIDFS_BASEDIR, HDFS_BASE_DIR);
-    conf.set("hadoop.security.authorization", "false");
-    hdfsCluster = new MiniDFSCluster.Builder(conf)
-      .format(true)
-      .build();
+  private void readRawFile() throws IOException {
+    try (FileSystem fs = hdfs.getFileSystem();
+         FSDataInputStream fis = fs.open(new Path(ARROW_FILE_HDFS_PATH))) {
+      FileStatus status = fs.getFileStatus(new Path(ARROW_FILE_HDFS_PATH));
+      ByteBuffer bb = ByteBuffer.allocate(2048);
+      long read = 0, totalRead = 0;
+      while (read < status.getLen()) {
+        bb.clear();
+        read += fis.read(bb);
+        bb.flip();
+        // drain byte buffer
+        while (bb.remaining() > 0) {
+          totalRead++;
+          bb.get();
+        }
+        LOG.info("input stream pos = {}", fis.getPos());
+      }
+      LOG.info("total read = {}", read);
+      LOG.info("actual read = {}", totalRead);
+    }
   }
+
+
+  private void shutdown() {
+    hdfs.shutdown();
+  }
+
+  private void init() throws IOException {
+    hdfs = new MiniHDFS(HDFS_BASE_DIR);
+    hdfs.start();
+  }
+
+
+  public static void main(String[] args) throws IOException, InterruptedException {
+    HdfsReadWriteDemo app = new HdfsReadWriteDemo();
+    app.init();
+    app.writeToHdfs();
+    Thread.sleep(1000);
+    app.readFromHdfs();
+//    app.readRawFile();
+    app.shutdown();
+  }
+
+
 }

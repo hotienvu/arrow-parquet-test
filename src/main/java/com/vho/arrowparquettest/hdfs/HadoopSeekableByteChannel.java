@@ -2,6 +2,8 @@ package com.vho.arrowparquettest.hdfs;
 
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileStatus;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -13,6 +15,7 @@ public class HadoopSeekableByteChannel implements SeekableByteChannel {
   private final FSDataInputStream inputStream;
   private boolean closed;
 
+  private static final Logger LOG  = LoggerFactory.getLogger(HadoopSeekableByteChannel.class);
   public HadoopSeekableByteChannel(FileStatus status, FSDataInputStream inputStream) {
     this.status = status;
     this.inputStream = inputStream;
@@ -32,7 +35,9 @@ public class HadoopSeekableByteChannel implements SeekableByteChannel {
 //    }
 //    dst.position(oldPos + read);
 //    return read;
-    return inputStream.read(dst);
+    int read = inputStream.read(dst);
+    LOG.info("byte read = {}, pos = {}", read, inputStream.getPos());
+    return read;
   }
 
   @Override

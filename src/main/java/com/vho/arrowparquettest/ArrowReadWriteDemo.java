@@ -90,9 +90,12 @@ public class ArrowReadWriteDemo {
   private void readFromArrowFile() throws IOException {
     try (FileInputStream os = new FileInputStream(new File("people.arrow"));
          BufferAllocator allocator = new RootAllocator();
-         ArrowFileReader reader = new ArrowFileReader(new SeekableReadChannel(os.getChannel()), allocator)) {
+         ArrowFileReader reader = new ArrowFileReader(os.getChannel(), allocator)) {
       reader.initialize();
       readPersonRecords(reader);
+      LOG.info("Arrow Reader Byte read = {}", reader.bytesRead());
+      LOG.info("ByteChannel position = {}", os.getChannel().position());
+      LOG.info("ByteChannel length = {}", os.getChannel().size());
     }
   }
 
