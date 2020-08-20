@@ -1,6 +1,9 @@
 package com.vho.arrowparquettest.hdfs;
 
 import com.vho.arrowparquettest.ArrowReadWriteDemo;
+import org.apache.arrow.memory.AllocationListener;
+import org.apache.arrow.memory.AllocationOutcome;
+import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.ipc.ArrowFileReader;
 import org.apache.hadoop.conf.Configuration;
@@ -27,7 +30,7 @@ public class HdfsReadWriteDemo {
     HdfsReadWriteDemo app = new HdfsReadWriteDemo();
     app.initHdfs();
     app.writeToHdfs();
-    Thread.sleep(3000);
+    Thread.sleep(1000);
     app.readFromHdfs();
     app.shutdown();
   }
@@ -48,8 +51,41 @@ public class HdfsReadWriteDemo {
   }
 
   private void readFromHdfs() throws IOException {
+    AllocationListener allocationListener = new AllocationListener() {
+      @Override
+      public void onPreAllocation(long size) {
+        LOG.info("Pre allocation. size = {}", size);
+
+      }
+
+      @Override
+      public void onAllocation(long size) {
+        LOG.info("ON allocation. size = {}", size);
+      }
+
+      @Override
+      public void onRelease(long size) {
+        LOG.info("ON Release. size = {}", size);
+      }
+
+      @Override
+      public boolean onFailedAllocation(long size, AllocationOutcome outcome) {
+        LOG.info("ON failed allocation. size = {}. Outcome = {}", size, outcome);
+        return false;
+      }
+
+      @Override
+      public void onChildAdded(BufferAllocator parentAllocator, BufferAllocator childAllocator) {
+        LOG.info("One child added. parent = {}, child = {}", parentAllocator, childAllocator);
+      }
+
+      @Override
+      public void onChildRemoved(BufferAllocator parentAllocator, BufferAllocator childAllocator) {
+        LOG.info("One child removed. parent = {}, child = {}", parentAllocator, childAllocator);
+      }
+    };
     try (FileSystem fs = hdfsCluster.getFileSystem();
-         RootAllocator allocator = new RootAllocator();
+         BufferAllocator allocator = new RootAllocator(allocationListener, Long.MAX_VALUE);
          FSDataInputStream fis =fs.open(new Path(ARROW_FILE_HDFS_PATH))
     ) {
       FileStatus status = fs.getFileStatus(new Path(ARROW_FILE_HDFS_PATH));
