@@ -34,16 +34,14 @@ public class VectorSchemaRootDemo {
       LOG.info("bit vector 0 = {}", bitVector.get(0));
 
       try (VectorSchemaRoot vsr = new VectorSchemaRoot(fields, vectors)) {
-        LOG.info("vector schema root row count = {}", vsr.getRowCount());
-        for (int i = 0; i < vsr.getRowCount(); ++i) {
-          int b = ((BitVector) vsr.getVector("boolean")).get(i);
-          String vc = new String(((VarCharVector) vsr.getVector("varchar")).get(i));
-          LOG.info("record {}th = {}, {}", i, b, vc);
-        }
+        printContent(vsr);
       }
+
       LOG.info("after release, bit vector count = {}, varchar vector count = {}", bitVector.getValueCount(), varCharVector.getValueCount());
     }
   }
+
+
 
   private static void loadUnloadRecordBatchDemo() {
     try (BufferAllocator allocator = new RootAllocator();
@@ -63,16 +61,25 @@ public class VectorSchemaRootDemo {
       VectorSchemaRoot root1 = new VectorSchemaRoot(fields, vectors);
       VectorUnloader unloader = new VectorUnloader(root1);
       ArrowRecordBatch recordBatch = unloader.getRecordBatch();
-      LOG.info("root1 size = {}", root1.getRowCount());
-      LOG.info("record batch size = {}", recordBatch.getLength());
 
       // create a VectorSchemaRoot root2 and load the recordBatch
+      LOG.info("Copying from RecordBatch to root2");
       VectorSchemaRoot root2 = VectorSchemaRoot.create(root1.getSchema(), allocator);
       VectorLoader loader = new VectorLoader(root2);
       loader.load(recordBatch);
-      LOG.info("root2 size = {}", root2.getRowCount());
+      printContent(root2);
       root1.clear();
       root2.clear();
+      recordBatch.close();
+    }
+  }
+
+  private static void printContent(VectorSchemaRoot vsr) {
+    LOG.info("vector schema root row count = {}", vsr.getRowCount());
+    for (int i = 0; i < vsr.getRowCount(); ++i) {
+      int b = ((BitVector) vsr.getVector("boolean")).get(i);
+      String vc = new String(((VarCharVector) vsr.getVector("varchar")).get(i));
+      LOG.info("record {}th = {}, {}", i, b, vc);
     }
   }
 
@@ -80,6 +87,4 @@ public class VectorSchemaRootDemo {
     vectorSchemaRootCreationDemo();
     loadUnloadRecordBatchDemo();
   }
-
-
 }
