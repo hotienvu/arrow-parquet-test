@@ -2,14 +2,15 @@ package com.vho.arrowparquettest;
 
 import com.vho.arrowparquettest.hdfs.MiniHDFS;
 import org.apache.avro.generic.GenericRecord;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hdfs.HdfsConfiguration;
 import org.apache.parquet.avro.AvroParquetReader;
 import org.apache.parquet.avro.AvroParquetWriter;
 import org.apache.parquet.hadoop.ParquetFileWriter;
 import org.apache.parquet.hadoop.ParquetReader;
 import org.apache.parquet.hadoop.ParquetWriter;
 import org.apache.parquet.hadoop.util.HadoopInputFile;
+import org.apache.parquet.io.InputFile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -53,9 +54,12 @@ public class ParquetWriteDemo {
   }
 
   private void readParquet() throws IOException {
-    ParquetReader<GenericRecord> reader = AvroParquetReader
-      .<GenericRecord>builder(HadoopInputFile.fromPath(new Path("/people2.parquet"), hdfs.getConfiguration()))
+    final Configuration conf = hdfs.getConfiguration();
+    final InputFile inputFile = HadoopInputFile.fromPath(new Path("/people2.parquet"), conf);
+    ParquetReader<GenericRecord> reader = AvroParquetReader.<GenericRecord>builder(inputFile)
+      .withConf(conf)
       .build();
+
     GenericRecord record = reader.read();
     List<GenericRecord> res = new ArrayList<>();
     while (record != null) {

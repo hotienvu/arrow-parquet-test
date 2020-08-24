@@ -9,8 +9,14 @@ import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.ipc.ArrowFileReader;
 import org.apache.arrow.vector.ipc.ArrowFileWriter;
-import org.apache.arrow.vector.ipc.SeekableReadChannel;
+import org.apache.arrow.vector.ipc.ArrowReader;
 import org.apache.commons.lang3.time.StopWatch;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hdfs.HdfsConfiguration;
+import org.apache.parquet.hadoop.ParquetReader;
+import org.apache.parquet.hadoop.util.HadoopInputFile;
+import org.apache.parquet.io.InputFile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -87,19 +93,35 @@ public class ArrowReadWriteDemo {
     LOG.info("Time = {}", stopWatch);
   }
 
-  private void readFromArrowFile() throws IOException {
-    try (FileInputStream os = new FileInputStream(new File("people.arrow"));
+  private void readFromArrowFile(File inputFile) throws IOException {
+    try (FileInputStream fis = new FileInputStream(inputFile);
          BufferAllocator allocator = new RootAllocator();
-         ArrowFileReader reader = new ArrowFileReader(os.getChannel(), allocator)) {
+         ArrowFileReader reader = new ArrowFileReader(fis.getChannel(), allocator)) {
       reader.initialize();
       readPersonRecords(reader);
       LOG.info("Arrow Reader Byte read = {}", reader.bytesRead());
-      LOG.info("ByteChannel position = {}", os.getChannel().position());
-      LOG.info("ByteChannel length = {}", os.getChannel().size());
+      LOG.info("ByteChannel position = {}", fis.getChannel().position());
+      LOG.info("ByteChannel length = {}", fis.getChannel().size());
     }
   }
 
-  public static void readPersonRecords(ArrowFileReader reader) throws IOException {
+  private void readFromParquetFile(Path path) throws IOException {
+    Configuration conf = new HdfsConfiguration();
+    InputFile inputFile = HadoopInputFile.fromPath(path, conf);
+    ParquetReader<Object> reader = ArrowParquetReader.builder(inputFile)
+      .withConf(conf)
+      .build();
+
+    Object record = reader.read();
+    List<Object> res = new ArrayList<>();
+    while (record != null) {
+      res.add(record);
+      record = reader.read();
+    }
+    LOG.info("Done reading {} records", res.size());
+  }
+
+  public static void readPersonRecords(ArrowReader reader) throws IOException {
     List<Person> people = new ArrayList<>();
     VectorSchemaRoot schemaRoot = reader.getVectorSchemaRoot();
     while (reader.loadNextBatch()) {
@@ -114,7 +136,7 @@ public class ArrowReadWriteDemo {
       UInt4Vector postalCodes = (UInt4Vector) addresses.getChild("postalCode");
 
       for (int i = 0; i < schemaRoot.getRowCount(); ++i) {
-        Address address = new Address(new String(streets.get(i)), streetNumbers.get(i), new String(cities.get(i)),  postalCodes.get(i));
+        Address address = new Address(new String(streets.get(i)), streetNumbers.get(i), new String(cities.get(i)), postalCodes.get(i));
         Person person = new Person(new String(firstNames.get(i)), new String(lastNames.get(i)), ages.get(i), address);
         people.add(person);
       }
@@ -125,7 +147,8 @@ public class ArrowReadWriteDemo {
   public static void main(String[] args) throws IOException {
     ArrowReadWriteDemo app = new ArrowReadWriteDemo();
     app.testWriteToArrow();
-    app.readFromArrowFile();
+    app.readFromArrowFile(new File("people.arrow"));
+    app.readFromParquetFile(new Path("people.parquet"));
   }
 
 }
