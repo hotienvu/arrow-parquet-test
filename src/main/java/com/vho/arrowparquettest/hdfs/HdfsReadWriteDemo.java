@@ -29,7 +29,7 @@ public class HdfsReadWriteDemo {
     try (FileSystem fs = hdfs.getFileSystem()) {
       fs.copyFromLocalFile(new Path("people.arrow"), new Path(ARROW_FILE_HDFS_PATH));
 
-      for (FileStatus status: fs.listStatus(new Path("/"))) {
+      for (FileStatus status : fs.listStatus(new Path("/"))) {
         LOG.info("[DEBUG] file = {}", status);
       }
       fs.copyToLocalFile(new Path(ARROW_FILE_HDFS_PATH), new Path("people_hdfs.arrow"));
@@ -72,16 +72,18 @@ public class HdfsReadWriteDemo {
     };
     try (FileSystem fs = hdfs.getFileSystem();
          BufferAllocator allocator = new RootAllocator(allocationListener, Long.MAX_VALUE);
-         FSDataInputStream fis =fs.open(new Path(ARROW_FILE_HDFS_PATH))
+         FSDataInputStream fis = fs.open(new Path(ARROW_FILE_HDFS_PATH))
     ) {
       FileStatus status = fs.getFileStatus(new Path(ARROW_FILE_HDFS_PATH));
-      SeekableByteChannel hadoopByteChannel = new HadoopSeekableByteChannel(status, fis);
-      ArrowFileReader reader = new ArrowFileReader(hadoopByteChannel, allocator) ;
-      LOG.info("Arrow reader read = {}", reader.bytesRead());
-      ArrowReadWriteDemo.readPersonRecords(reader);
-      LOG.info("Arrow reader read = {}", reader.bytesRead());
-      LOG.info("File size = {}", status.getLen());
-      LOG.info("hadoop byte channel position = {}", hadoopByteChannel.position());
+      try (SeekableByteChannel hadoopByteChannel = new HadoopSeekableByteChannel(status, fis);
+           ArrowFileReader reader = new ArrowFileReader(hadoopByteChannel, allocator)) {
+        reader.initialize();
+        LOG.info("Arrow reader read = {}", reader.bytesRead());
+        ArrowReadWriteDemo.readPersonRecords(reader);
+        LOG.info("Arrow reader read = {}", reader.bytesRead());
+        LOG.info("File size = {}", status.getLen());
+        LOG.info("hadoop byte channel position = {}", hadoopByteChannel.position());
+      }
     }
   }
 
@@ -90,7 +92,8 @@ public class HdfsReadWriteDemo {
          FSDataInputStream fis = fs.open(new Path(ARROW_FILE_HDFS_PATH))) {
       FileStatus status = fs.getFileStatus(new Path(ARROW_FILE_HDFS_PATH));
       ByteBuffer bb = ByteBuffer.allocate(2048);
-      long read = 0, totalRead = 0;
+      long read = 0;
+      long totalRead = 0;
       while (read < status.getLen()) {
         bb.clear();
         read += fis.read(bb);
@@ -124,7 +127,7 @@ public class HdfsReadWriteDemo {
     app.writeToHdfs();
     Thread.sleep(1000);
     app.readFromHdfs();
-//    app.readRawFile();
+    app.readRawFile();
     app.shutdown();
   }
 
