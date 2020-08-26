@@ -18,10 +18,10 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-public class ParquetWriteDemo {
+public class AvroParquetReadWriteDemo {
   private static final int NUM_PEOPLE = 1_000_000;
   private MiniHDFS hdfs;
-  private static final Logger LOG = LoggerFactory.getLogger(ParquetWriteDemo.class);
+  private static final Logger LOG = LoggerFactory.getLogger(AvroParquetReadWriteDemo.class);
 
   private Person[] generateRandom(int numPeople) {
     Person[] res = new Person[numPeople];
@@ -80,7 +80,7 @@ public class ParquetWriteDemo {
   }
 
   public static void main(String[] args) throws IOException {
-    ParquetWriteDemo app = new ParquetWriteDemo();
+    AvroParquetReadWriteDemo app = new AvroParquetReadWriteDemo();
     app.init();
 //    Person[] people = app.generateRandom(NUM_PEOPLE);
 //    app.writeToParquet(people);
